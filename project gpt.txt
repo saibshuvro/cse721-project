@@ -1,0 +1,244 @@
+Use **VS Code**, not Google Colab.
+
+For this project, you need to implement many algorithms, organize them into separate modules, run repeated tests, measure performance, and possibly create a small interface. VS Code is much better suited for that. Colab is mainly useful for experiments, notebooks, and demonstrations, but it becomes difficult to manage a large multi-file cryptography project there.
+
+## Recommended approach
+
+Build a **Python command-line application first**. A terminal menu fully satisfies the requirement that the user can select an algorithm. Only add a one-page frontend after the algorithms work correctly.
+
+A suitable main menu could look like:
+
+```text
+CSE721 Cryptography Project
+
+1. Substitution Cipher
+2. Double Transposition Cipher
+3. DES
+4. AES
+5. RSA
+6. ECC
+7. Performance Comparison
+8. Exit
+
+Select an algorithm:
+```
+
+Each algorithm can then have its own submenu for key generation, encryption, decryption, attacks, and displaying intermediate values.
+
+## Suggested folder structure
+
+```text
+CSE721-Cryptography-Project/
+│
+├── main.py
+├── README.md
+├── requirements.txt
+│
+├── classical/
+│   ├── __init__.py
+│   ├── substitution.py
+│   ├── frequency_analysis.py
+│   └── double_transposition.py
+│
+├── symmetric/
+│   ├── __init__.py
+│   ├── des.py
+│   └── aes.py
+│
+├── public_key/
+│   ├── __init__.py
+│   ├── rsa.py
+│   ├── factorization.py
+│   ├── ecc.py
+│   └── ecdh.py
+│
+├── analysis/
+│   ├── performance.py
+│   └── security_analysis.py
+│
+└── tests/
+    ├── test_classical.py
+    ├── test_des.py
+    ├── test_aes.py
+    ├── test_rsa.py
+    └── test_ecc.py
+```
+
+This modular structure also helps demonstrate that you followed the “modular and well-documented” requirement.
+
+## What each section should show
+
+### Substitution cipher
+
+Show:
+
+* Plaintext
+* Generated or entered 26-letter key
+* Ciphertext
+* Decrypted text
+* Brute-force or key-search demonstration
+* Letter-frequency table
+* Suggested plaintext mapping from frequency analysis
+
+For a general monoalphabetic substitution cipher, testing all (26!) keys is impractical. You should explain this and implement either:
+
+* brute force for a reduced alphabet or restricted key space, or
+* heuristic frequency analysis for the full alphabet.
+
+### Double transposition
+
+Show:
+
+* Plaintext
+* Row permutation
+* Column permutation
+* Padded grid
+* Ciphertext
+* Reconstructed grid
+* Decrypted plaintext
+
+Frequency analysis is not especially effective against transposition because the letters themselves are unchanged. You can still display letter frequencies and explain that the frequency distribution is preserved.
+
+### DES
+
+Implement:
+
+* Initial permutation
+* 16 Feistel rounds
+* Expansion permutation
+* XOR with the round key
+* S-box substitution
+* P permutation
+* Final permutation
+* DES key schedule
+
+Display all 16 round keys in binary or hexadecimal.
+
+DES operates on 64-bit blocks and uses an effective 56-bit key. You will also need to decide how to convert arbitrary text into 8-byte blocks and how to pad the last block.
+
+### AES
+
+AES is likely the most time-consuming part. Implement AES-128 first unless your teacher explicitly requires AES-192 and AES-256.
+
+Implement:
+
+* SubBytes
+* ShiftRows
+* MixColumns
+* AddRoundKey
+* Key expansion
+* Inverse SubBytes
+* Inverse ShiftRows
+* Inverse MixColumns
+
+Display the original key and all 11 AES-128 round keys.
+
+Use fixed-size 16-byte blocks and a clearly documented padding method.
+
+### RSA
+
+Provide a submenu similar to:
+
+```text
+1. Generate RSA keys
+2. Encrypt message
+3. Decrypt ciphertext
+4. Run factorization demonstration
+5. Return
+```
+
+Implement:
+
+* Prime generation
+* Primality testing
+* (n = pq)
+* Euler’s totient
+* Public exponent selection
+* Extended Euclidean algorithm
+* Modular inverse
+* Modular exponentiation
+* String-to-integer conversion
+* Integer-to-string conversion
+
+For the factorization attack, use a deliberately small RSA key, such as 32–64 bits. Do not attempt to factor the normal 512- or 1024-bit demonstration key.
+
+Also note in your report that 512- and 1024-bit RSA are not considered secure for real-world deployment, but they may be used here because implementing and demonstrating large-key operations from scratch can be slow.
+
+### ECC and ECDH
+
+ECC should include:
+
+* Curve validation
+* Point generation
+* Point addition
+* Point doubling
+* Scalar multiplication
+* Private-key generation
+* Public-key generation
+* ECDH shared-secret calculation
+
+For “List of all Ps,” use a small educational curve. Listing every point on a real cryptographic-size curve is impossible.
+
+For example, use a small prime field for demonstration:
+
+```text
+p = 17
+a = 2
+b = 2
+```
+
+Then enumerate every point satisfying:
+
+[
+y^2 \equiv x^3 + ax + b \pmod p
+]
+
+Use the same curve to demonstrate Alice and Bob generating matching ECDH shared points.
+
+## Terminal versus webpage
+
+A terminal application is enough for the required input and output. It is also safer for the project schedule because you can focus on cryptographic correctness instead of HTML, CSS, JavaScript, and server integration.
+
+A good sequence is:
+
+1. Implement and test every algorithm in VS Code.
+2. Build the terminal menu.
+3. Add performance measurements and security analysis.
+4. Only then consider a minimal Flask webpage.
+
+A single webpage could use a dropdown for the algorithm and dynamic input fields, but it would add substantial work because DES, AES, RSA, and ECC all require different inputs and outputs.
+
+## Performance analysis
+
+Use Python’s `time.perf_counter()` to measure:
+
+* Key-generation time
+* Encryption time
+* Decryption time
+* Attack time
+* Effect of message size
+* Effect of key size
+
+Run every test several times and report the average rather than using only one execution.
+
+A comparison table could include:
+
+| Algorithm            | Key type   | Block/message size | Key generation | Encryption | Decryption | Main weakness                     |
+| -------------------- | ---------- | -----------------: | -------------: | ---------: | ---------: | --------------------------------- |
+| Substitution         | Symmetric  |               Text |              — |          — |          — | Frequency analysis                |
+| Double transposition | Symmetric  |          Text grid |              — |          — |          — | Structural analysis               |
+| DES                  | Symmetric  |       64-bit block |              — |          — |          — | Small key space                   |
+| AES-128              | Symmetric  |      128-bit block |              — |          — |          — | Secure when correctly implemented |
+| RSA                  | Public key |     Integer blocks |              — |          — |          — | Integer factorization             |
+| ECC                  | Public key |       Curve points |              — |          — |          — | Elliptic-curve discrete logarithm |
+
+## Important scope decision
+
+Do not build everything in one Python file. DES and AES alone can become several hundred lines. Separate modules will make debugging and demonstration much easier.
+
+The most practical submission is:
+
+> **Python project in VS Code + modular source files + terminal menu + optional minimal Flask interface + report containing test vectors, screenshots, timing results, and security analysis.**
+
+You can still use Colab occasionally to create charts or experiment with performance data, but it should not be the main development environment.
+

@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cse721-cryptography-project"
+version = "0.1.0"
+description = "Educational implementations and analysis of classical and modern cryptography"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+cse721-crypto = "main:main"
+
+[tool.setuptools]
+py-modules = ["main"]
+packages = ["analysis", "classical", "common", "public_key", "symmetric"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+

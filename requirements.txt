@@ -1,0 +1,3 @@
+# The application intentionally has no third-party runtime dependencies.
+# Core cryptographic operations must be implemented from scratch.
+
