@@ -6,6 +6,8 @@ import argparse
 from dataclasses import dataclass
 from typing import Callable, Sequence
 
+from cli.substitution_menu import run_substitution_menu
+
 
 @dataclass(frozen=True)
 class Component:
@@ -18,7 +20,7 @@ class Component:
 
 
 COMPONENTS: tuple[Component, ...] = (
-    Component("1", "Substitution Cipher", "classical.substitution"),
+    Component("1", "Substitution Cipher", "classical.substitution", implemented=True),
     Component("2", "Double Transposition Cipher", "classical.double_transposition"),
     Component("3", "DES", "symmetric.des"),
     Component("4", "AES-128", "symmetric.aes"),
@@ -59,6 +61,10 @@ def interactive_menu(input_fn: Callable[[str], str] = input) -> int:
         component = by_number.get(choice)
         if component is None:
             print("\nInvalid selection. Enter a number from 1 to 8.\n")
+            continue
+        if choice == "1":
+            run_substitution_menu(input_fn)
+            print()
             continue
         print(
             f"\n{component.name} is scaffolded in {component.module}; "

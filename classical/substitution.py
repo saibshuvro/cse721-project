@@ -185,10 +185,9 @@ def brute_force_reduced(
         candidate_key = "".join(candidate_tuple)
 
         encryption_mapping = dict(zip(alphabet, candidate_key))
-        decryption_mapping = {
-            cipher_letter: plain_letter
-            for plain_letter, cipher_letter in encryption_mapping.items()
-        }
+        decryption_mapping = {}
+        for plain_letter, cipher_letter in encryption_mapping.items():
+            decryption_mapping[cipher_letter] = plain_letter
 
         plaintext_characters: list[str] = []
         for character in ciphertext:

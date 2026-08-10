@@ -16,49 +16,43 @@ COMMON_ENGLISH_LETTERS = "ETAOINSHRDLCUMWFGYPBVKJXQZ"
 
 
 def letter_counts(text: str) -> dict[str, int]:
-    """Count ASCII letters case-insensitively, including zero-count letters.
+    # Count ASCII letters case-insensitively, including zero-count letters.
+    if type(text) is not str:
+        raise TypeError("Input must be a string")
+    counts = {letter: 0 for letter in ascii_uppercase}
+    for char in text.upper():
+        if char in ascii_uppercase:
+            counts[char] += 1
+    return counts
 
-    TODO(student):
-        1. Require ``text`` to be a string.
-        2. Create a dictionary containing A-Z, each initially mapped to zero.
-        3. Visit every character and normalize it to uppercase for lookup.
-        4. Increment the count only when the normalized character is in A-Z.
-        5. Return the dictionary.
-
-    Spaces, punctuation, digits, and non-ASCII letters are excluded from the
-    frequency total.
-    """
-
-    raise NotImplementedError("TODO(student): count letters A through Z")
+    # raise NotImplementedError("TODO(student): count letters A through Z")
 
 
 def ranked_letters(text: str) -> list[tuple[str, int]]:
-    """Return ``(letter, count)`` pairs from most to least frequent.
+    # Return ``(letter, count)`` pairs from most to least frequent.
+    counts = letter_counts(text)
+    ranked_letters = []
+    for letter, count in counts.items():
+        ranked_letters.append((letter, count))
+    ranked_letters.sort(key=lambda x: (-x[1], x[0]))
+    return ranked_letters
 
-    TODO(student):
-        1. Reuse ``letter_counts``.
-        2. Sort primarily by descending count.
-        3. Use the letter itself as a secondary key so ties are deterministic.
-        4. Return the sorted pairs.
-
-    Hint: a key shaped like ``(-count, letter)`` gives that ordering.
-    """
-
-    raise NotImplementedError("TODO(student): rank the frequency table")
+    # raise NotImplementedError("TODO(student): rank the frequency table")
 
 
 def letter_percentages(text: str) -> dict[str, float]:
-    """Return each letter's percentage among ASCII letters in ``text``.
+    # Return each letter's percentage among ASCII letters in ``text``.
+    counts = letter_counts(text)
+    total = sum(counts.values())
+    percentages = {}
+    for letter, count in counts.items():
+        if total == 0:
+            percentages[letter] = 0.0
+        else:
+            percentages[letter] = (count / total) * 100
+    return percentages
 
-    TODO(student):
-        1. Reuse ``letter_counts``.
-        2. Add the counts to find the total number of letters.
-        3. Handle an empty/no-letter input without dividing by zero.
-        4. Convert every count to a percentage from 0.0 to 100.0.
-        5. Return a dictionary containing all A-Z entries.
-    """
-
-    raise NotImplementedError("TODO(student): calculate letter percentages")
+    # raise NotImplementedError("TODO(student): calculate letter percentages")
 
 
 def suggest_english_mapping(ciphertext: str) -> dict[str, str]:
@@ -68,17 +62,25 @@ def suggest_english_mapping(ciphertext: str) -> dict[str, str]:
     guesses X -> E because E is commonly the most frequent English letter. The
     second-ranked ciphertext letter is guessed to represent T, and so on.
 
-    TODO(student):
-        1. Obtain ranked ciphertext letters with ``ranked_letters``.
-        2. Ignore entries whose count is zero; unseen letters provide no clue.
-        3. Pair ranked ciphertext letters with ``COMMON_ENGLISH_LETTERS``.
-        4. Return a ciphertext-letter -> guessed-plaintext-letter dictionary.
-
     This is only an initial guess. Never label it as guaranteed plaintext.
     Short ciphertexts in particular may produce very poor suggestions.
     """
+    ranked_ciphertext_letters = ranked_letters(ciphertext)
+    mapping = {}
 
-    raise NotImplementedError("TODO(student): suggest a frequency-based mapping")
+    # ranked_letters() always contains A-Z, including letters with a count of
+    # zero. Unseen letters provide no evidence, so they must not be included in
+    # the suggested mapping.
+    english_rank_index = 0
+    for ciphertext_letter, count in ranked_ciphertext_letters:
+        if count == 0:
+            continue
+
+        guessed_plaintext_letter = COMMON_ENGLISH_LETTERS[english_rank_index]
+        mapping[ciphertext_letter] = guessed_plaintext_letter
+        english_rank_index += 1
+
+    return mapping
 
 
 def apply_partial_mapping(
@@ -88,17 +90,59 @@ def apply_partial_mapping(
 ) -> str:
     """Preview a guessed ciphertext-to-plaintext mapping.
 
-    TODO(student):
-        1. Validate that mapped keys/values are single ASCII letters.
-        2. Normalize the mapping to uppercase.
-        3. Preserve spaces, punctuation, and digits unchanged.
-        4. Replace mapped ciphertext letters, preserving their original case.
-        5. Replace unmapped ASCII letters with ``unknown_marker`` so the user
-           can distinguish unknown letters from confident guesses.
-        6. Return the preview.
-
     Keeping this separate lets the user edit the suggested mapping and preview
     the effect without changing the actual encryption key.
     """
+    if type(ciphertext) is not str:
+        raise TypeError("Ciphertext must be a string")
+    if type(mapping) is not dict:
+        raise TypeError("Mapping must be a dictionary")
+    if type(unknown_marker) is not str:
+        raise TypeError("Unknown marker must be a string")
+    if len(unknown_marker) != 1:
+        raise ValueError("Unknown marker must contain exactly one character")
 
-    raise NotImplementedError("TODO(student): apply a partial guessed mapping")
+    normalized_mapping: dict[str, str] = {}
+    for ciphertext_letter, plaintext_letter in mapping.items():
+        if type(ciphertext_letter) is not str or type(plaintext_letter) is not str:
+            raise TypeError("Mapping keys and values must be strings")
+
+        normalized_ciphertext_letter = ciphertext_letter.upper()
+        normalized_plaintext_letter = plaintext_letter.upper()
+        if (
+            len(normalized_ciphertext_letter) != 1
+            or normalized_ciphertext_letter not in ascii_uppercase
+            or len(normalized_plaintext_letter) != 1
+            or normalized_plaintext_letter not in ascii_uppercase
+        ):
+            raise ValueError("Mapping keys and values must be single ASCII letters A-Z")
+
+        # A partial substitution must still be one-to-one. Two ciphertext
+        # letters cannot represent the same plaintext letter.
+        if normalized_plaintext_letter in normalized_mapping.values():
+            raise ValueError("Mapping values must not contain duplicate letters")
+        if normalized_ciphertext_letter in normalized_mapping:
+            raise ValueError("Mapping keys must not contain duplicate letters")
+
+        normalized_mapping[normalized_ciphertext_letter] = normalized_plaintext_letter
+
+    preview_characters: list[str] = []
+    for character in ciphertext:
+        uppercase_character = character.upper()
+
+        # Non-ASCII letters and all non-letter characters are outside this
+        # cipher's alphabet, so they are copied unchanged.
+        if uppercase_character not in ascii_uppercase:
+            preview_characters.append(character)
+            continue
+
+        if uppercase_character not in normalized_mapping:
+            preview_characters.append(unknown_marker)
+            continue
+
+        translated_character = normalized_mapping[uppercase_character]
+        if character.islower():
+            translated_character = translated_character.lower()
+        preview_characters.append(translated_character)
+
+    return "".join(preview_characters)

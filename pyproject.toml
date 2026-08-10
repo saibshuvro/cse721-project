@@ -15,9 +15,8 @@ cse721-crypto = "main:main"
 
 [tool.setuptools]
 py-modules = ["main"]
-packages = ["analysis", "classical", "common", "public_key", "symmetric"]
+packages = ["analysis", "classical", "cli", "common", "public_key", "symmetric"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-
