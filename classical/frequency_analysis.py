@@ -7,7 +7,7 @@ word patterns and context. This module is intentionally unfinished.
 
 from __future__ import annotations
 
-from string import ascii_uppercase
+from string import ascii_letters, ascii_uppercase
 
 
 # A commonly used approximate frequency order for English. Real frequencies
@@ -20,9 +20,12 @@ def letter_counts(text: str) -> dict[str, int]:
     if type(text) is not str:
         raise TypeError("Input must be a string")
     counts = {letter: 0 for letter in ascii_uppercase}
-    for char in text.upper():
-        if char in ascii_uppercase:
-            counts[char] += 1
+    for character in text:
+        # Validate the original character before case conversion. Unicode
+        # uppercasing can expand or normalize characters ("ß" -> "SS",
+        # "ı" -> "I"), but this analysis intentionally counts ASCII only.
+        if character in ascii_letters:
+            counts[character.upper()] += 1
     return counts
 
     # raise NotImplementedError("TODO(student): count letters A through Z")
@@ -107,15 +110,16 @@ def apply_partial_mapping(
         if type(ciphertext_letter) is not str or type(plaintext_letter) is not str:
             raise TypeError("Mapping keys and values must be strings")
 
-        normalized_ciphertext_letter = ciphertext_letter.upper()
-        normalized_plaintext_letter = plaintext_letter.upper()
         if (
-            len(normalized_ciphertext_letter) != 1
-            or normalized_ciphertext_letter not in ascii_uppercase
-            or len(normalized_plaintext_letter) != 1
-            or normalized_plaintext_letter not in ascii_uppercase
+            len(ciphertext_letter) != 1
+            or ciphertext_letter not in ascii_letters
+            or len(plaintext_letter) != 1
+            or plaintext_letter not in ascii_letters
         ):
             raise ValueError("Mapping keys and values must be single ASCII letters A-Z")
+
+        normalized_ciphertext_letter = ciphertext_letter.upper()
+        normalized_plaintext_letter = plaintext_letter.upper()
 
         # A partial substitution must still be one-to-one. Two ciphertext
         # letters cannot represent the same plaintext letter.
@@ -128,13 +132,13 @@ def apply_partial_mapping(
 
     preview_characters: list[str] = []
     for character in ciphertext:
-        uppercase_character = character.upper()
-
         # Non-ASCII letters and all non-letter characters are outside this
         # cipher's alphabet, so they are copied unchanged.
-        if uppercase_character not in ascii_uppercase:
+        if character not in ascii_letters:
             preview_characters.append(character)
             continue
+
+        uppercase_character = character.upper()
 
         if uppercase_character not in normalized_mapping:
             preview_characters.append(unknown_marker)

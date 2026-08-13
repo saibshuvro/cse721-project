@@ -48,6 +48,28 @@ class SubstitutionCipherTests(unittest.TestCase):
             "Qzzqea qz Rqvf! 123",
         )
 
+    def test_non_ascii_characters_are_preserved_without_case_normalization(self) -> None:
+        plaintext = "ASCII edge cases: ı ſ ß K; বাংলা"
+        ciphertext = substitution.encrypt(plaintext, EXAMPLE_KEY)
+        self.assertEqual(
+            "".join(
+                character
+                for character in ciphertext
+                if character in "ıſßKবাংলা"
+            ),
+            "ıſßKবাংলা",
+        )
+        self.assertEqual(substitution.decrypt(ciphertext, EXAMPLE_KEY), plaintext)
+
+    def test_unicode_ascii_lookalikes_are_rejected_in_keys_and_toy_alphabets(self) -> None:
+        identity_key = substitution.ALPHABET
+        with self.assertRaises(ValueError):
+            substitution.validate_key(identity_key.replace("I", "ı"))
+        with self.assertRaises(ValueError):
+            substitution.validate_key(identity_key.replace("S", "ſ"))
+        with self.assertRaises(ValueError):
+            substitution.validate_reduced_alphabet("Aı")
+
     def test_round_trip(self) -> None:
         plaintext = "Meet me at 10:30 PM."
         ciphertext = substitution.encrypt(plaintext, EXAMPLE_KEY)
@@ -67,6 +89,10 @@ class FrequencyAnalysisTests(unittest.TestCase):
         self.assertEqual(counts["Z"], 0)
         self.assertEqual(sum(counts.values()), 3)
 
+    def test_letter_counts_ignore_non_ascii_case_expansions(self) -> None:
+        counts = frequency_analysis.letter_counts("ı ſ ß K")
+        self.assertEqual(sum(counts.values()), 0)
+
     def test_empty_frequency_input_does_not_divide_by_zero(self) -> None:
         percentages = frequency_analysis.letter_percentages("123!")
         self.assertTrue(all(value == 0.0 for value in percentages.values()))
@@ -83,6 +109,14 @@ class FrequencyAnalysisTests(unittest.TestCase):
             {"X": "E", "y": "T"},
         )
         self.assertEqual(preview, "Et_! 123")
+
+    def test_partial_mapping_preserves_non_ascii_and_rejects_lookalikes(self) -> None:
+        self.assertEqual(
+            frequency_analysis.apply_partial_mapping("X ı ſ ß K", {"X": "E"}),
+            "E ı ſ ß K",
+        )
+        with self.assertRaises(ValueError):
+            frequency_analysis.apply_partial_mapping("S", {"ſ": "E"})
 
     def test_partial_mapping_rejects_duplicate_plaintext_letters(self) -> None:
         with self.assertRaises(ValueError):

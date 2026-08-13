@@ -29,7 +29,7 @@ testable and reusable from either a terminal menu or a future web page.
 from __future__ import annotations
 
 from itertools import permutations
-from string import ascii_uppercase
+from string import ascii_letters, ascii_uppercase
 
 
 ALPHABET = ascii_uppercase
@@ -39,6 +39,15 @@ def validate_key(key: str) -> str:
     # Return a normalized 26-letter permutation or raise an exception.
     if type(key) is not str:
         raise TypeError("Key must be a string")
+
+    # Check the original characters before calling upper(). Some non-ASCII
+    # Unicode characters normalize to ASCII-looking letters when uppercased;
+    # for example, "ı" becomes "I" and "ſ" becomes "S". Such characters
+    # are outside this cipher's explicitly ASCII alphabet and must not be
+    # accepted as key letters.
+    if any(character not in ascii_letters for character in key):
+        raise ValueError("Key must contain only ASCII letters A-Z")
+
     key = key.upper()
     if len(key) != 26:
         raise ValueError("Key must be exactly 26 letters long")
@@ -73,9 +82,12 @@ def build_decryption_mapping(key: str) -> dict[str, str]:
 
 def _translate_character(character: str, mapping: dict[str, str]) -> str:
     # Translate one ASCII letter with ``mapping`` while preserving case.
-    character_upper = character.upper()
-    if character_upper not in ALPHABET:
+    # Test the original character first so Unicode case conversion cannot turn
+    # an out-of-alphabet character such as "ı" or "ſ" into ASCII I or S.
+    if character not in ascii_letters:
         return character
+
+    character_upper = character.upper()
     translated_char = mapping[character_upper]
     if character.islower():
         return translated_char.lower()
@@ -119,17 +131,16 @@ def validate_reduced_alphabet(alphabet: str, maximum_size: int = 8) -> str:
     Full brute force is impossible for a normal 26-letter substitution because
     it has 26! possible keys. A small alphabet makes exhaustive search visible
     and measurable without falsely claiming to search the real key space.
-
-    TODO(student):
-        1. Require ``alphabet`` to be a string and normalize it to uppercase.
-        2. Require at least two unique ASCII letters.
-        3. Reject duplicates and non-ASCII letters.
-        4. Reject an alphabet longer than ``maximum_size``. With the default
-           cap, the largest search has 8! = 40,320 keys.
-        5. Return the normalized alphabet.
     """
+
     if type(alphabet) is not str:
         raise TypeError("Alphabet must be a string")
+
+    # As with a complete substitution key, validate before normalizing case so
+    # Unicode lookalikes cannot enter this ASCII-only toy alphabet.
+    if any(character not in ascii_letters for character in alphabet):
+        raise ValueError("Alphabet must contain only ASCII letters A-Z")
+
     alphabet = alphabet.upper()
     if len(set(alphabet)) < 2:
         raise ValueError("Alphabet must contain at least two unique letters")
@@ -137,9 +148,6 @@ def validate_reduced_alphabet(alphabet: str, maximum_size: int = 8) -> str:
         raise ValueError("Alphabet must not contain duplicate letters")
     if len(alphabet) > maximum_size:
         raise ValueError(f"Alphabet must not exceed {maximum_size} letters")
-    for letter in alphabet:
-        if letter not in ALPHABET:
-            raise ValueError("Alphabet must contain only ASCII letters A-Z")
     return alphabet
 
     # raise NotImplementedError("TODO(student): validate the toy alphabet")
@@ -155,16 +163,6 @@ def brute_force_reduced(
     toy alphabet is ``ABC``, its six candidate keys are the permutations of
     those three letters. Text for this demonstration should contain only those
     letters plus characters that are intentionally left unchanged.
-
-    TODO(student):
-        1. Validate the reduced alphabet.
-        2. Use ``itertools.permutations`` from the Python standard library to
-           generate every candidate encryption key for that alphabet.
-        3. For each candidate, pair plaintext alphabet letters with candidate
-           ciphertext letters, then invert that mapping for decryption.
-        4. Decrypt the supplied ciphertext under that candidate mapping.
-        5. Append ``(candidate_key, candidate_plaintext)`` and return all
-           candidates.
 
     This function is a demonstration of factorial growth, not an attack that
     can exhaust the real 26-letter key space. State that clearly in the UI and
@@ -191,6 +189,10 @@ def brute_force_reduced(
 
         plaintext_characters: list[str] = []
         for character in ciphertext:
+            if character not in ascii_letters:
+                plaintext_characters.append(character)
+                continue
+
             uppercase_character = character.upper()
 
             # Characters outside the toy alphabet are not encrypted by this
