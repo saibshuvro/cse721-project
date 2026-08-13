@@ -12,9 +12,9 @@ and must not be used to protect real data.
 
 ## Current status
 
-The repository is scaffolded: package boundaries, public interfaces, CLI navigation, test locations,
-documentation, and analysis output locations are present. Algorithm bodies are deliberately marked
-`NotImplementedError`; they should be implemented and verified one algorithm at a time.
+The monoalphabetic substitution and Double Transposition ciphers are implemented, tested, and
+available from main-menu options 1 and 2. DES, AES-128, RSA, ECC/ECDH, and comparative performance
+analysis remain scaffolded and should be implemented and verified one component at a time.
 
 ## Run
 
@@ -63,4 +63,3 @@ Each implementation should provide:
 4. round-trip, invalid-input, and edge-case tests;
 5. repeated performance measurements using `time.perf_counter_ns()`;
 6. a short security explanation that distinguishes educational behavior from secure practice.
-

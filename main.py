@@ -6,6 +6,7 @@ import argparse
 from dataclasses import dataclass
 from typing import Callable, Sequence
 
+from cli.double_transposition_menu import run_double_transposition_menu
 from cli.substitution_menu import run_substitution_menu
 
 
@@ -21,7 +22,12 @@ class Component:
 
 COMPONENTS: tuple[Component, ...] = (
     Component("1", "Substitution Cipher", "classical.substitution", implemented=True),
-    Component("2", "Double Transposition Cipher", "classical.double_transposition"),
+    Component(
+        "2",
+        "Double Transposition Cipher",
+        "classical.double_transposition",
+        implemented=True,
+    ),
     Component("3", "DES", "symmetric.des"),
     Component("4", "AES-128", "symmetric.aes"),
     Component("5", "RSA", "public_key.rsa"),
@@ -64,6 +70,10 @@ def interactive_menu(input_fn: Callable[[str], str] = input) -> int:
             continue
         if choice == "1":
             run_substitution_menu(input_fn)
+            print()
+            continue
+        if choice == "2":
+            run_double_transposition_menu(input_fn)
             print()
             continue
         print(
