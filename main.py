@@ -6,6 +6,7 @@ import argparse
 from dataclasses import dataclass
 from typing import Callable, Sequence
 
+from cli.analysis_menu import run_analysis_menu
 from cli.aes_menu import run_aes_menu
 from cli.des_menu import run_des_menu
 from cli.double_transposition_menu import run_double_transposition_menu
@@ -41,7 +42,12 @@ COMPONENTS: tuple[Component, ...] = (
         "public_key.ecc + public_key.ecdh",
         implemented=True,
     ),
-    Component("7", "Performance Comparison", "analysis.performance"),
+    Component(
+        "7",
+        "Performance & Security Analysis",
+        "analysis.benchmark_suite + analysis.security_analysis",
+        implemented=True,
+    ),
 )
 
 
@@ -99,6 +105,10 @@ def interactive_menu(input_fn: Callable[[str], str] = input) -> int:
             continue
         if choice == "6":
             run_ecc_menu(input_fn)
+            print()
+            continue
+        if choice == "7":
+            run_analysis_menu(input_fn)
             print()
             continue
         print(
