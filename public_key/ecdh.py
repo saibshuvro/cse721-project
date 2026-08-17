@@ -29,7 +29,17 @@ def _validated_generator_parameters(curve: Curve) -> tuple[Point, int]:
     operating on a curve that has no generator subgroup.
     """
 
-    raise NotImplementedError("TODO(student): require ECDH domain parameters")
+    if not isinstance(curve, Curve):
+        raise TypeError("Curve must be a Curve")
+
+    curve.validate()
+    generator = curve.generator
+    order = curve.order
+
+    if generator is None or order is None:
+        raise ValueError("ECDH requires both generator G and subgroup order n")
+
+    return generator, order
 
 
 def _validate_private_key(curve: Curve, private_key: int) -> int:
@@ -40,7 +50,14 @@ def _validate_private_key(curve: Curve, private_key: int) -> int:
     interval with ``ValueError``, and return the validated scalar.
     """
 
-    raise NotImplementedError("TODO(student): validate an ECDH private key")
+    _, order = _validated_generator_parameters(curve)
+
+    if isinstance(private_key, bool) or not isinstance(private_key, int):
+        raise TypeError("Private key must be an integer")
+    if not 1 <= private_key < order:
+        raise ValueError(f"Private key must be in the interval 1..{order - 1}")
+
+    return private_key
 
 
 def _validate_peer_public_key(curve: Curve, point: PointLike) -> Point:
@@ -60,7 +77,18 @@ def _validate_peer_public_key(curve: Curve, point: PointLike) -> Point:
     attacks in real ECDH systems.
     """
 
-    raise NotImplementedError("TODO(student): validate an ECDH public key")
+    _, order = _validated_generator_parameters(curve)
+
+    if point is None:
+        raise ValueError("Peer public key must not be the point at infinity")
+    if not isinstance(point, Point):
+        raise TypeError("Peer public key must be a Point")
+    if not curve.contains(point):
+        raise ValueError("Peer public key is not a valid point on this curve")
+    if curve.multiply(order, point) is not None:
+        raise ValueError("Peer public key is not in the generator subgroup")
+
+    return point
 
 
 def generate_private_key(curve: Curve) -> int:
@@ -71,7 +99,8 @@ def generate_private_key(curve: Curve) -> int:
     ``random`` module for key generation.
     """
 
-    raise NotImplementedError("TODO(student): generate an ECDH private key")
+    _, order = _validated_generator_parameters(curve)
+    return secrets.randbelow(order - 1) + 1
 
 
 def public_key(curve: Curve, private_key: int) -> Point:
@@ -81,7 +110,14 @@ def public_key(curve: Curve, private_key: int) -> Point:
     G by the scalar, defensively reject INFINITY, and return the affine point.
     """
 
-    raise NotImplementedError("TODO(student): derive an ECDH public key")
+    validated_private_key = _validate_private_key(curve, private_key)
+    generator, _ = _validated_generator_parameters(curve)
+    derived_point = curve.multiply(validated_private_key, generator)
+
+    if derived_point is None:
+        raise ValueError("A valid ECDH private key produced the point at infinity")
+
+    return derived_point
 
 
 def shared_point(
@@ -102,7 +138,14 @@ def shared_point(
         dA * (dB * G) = (dA*dB) * G = dB * (dA * G)
     """
 
-    raise NotImplementedError("TODO(student): derive the ECDH shared point")
+    validated_private_key = _validate_private_key(curve, private_key)
+    validated_peer_key = _validate_peer_public_key(curve, peer_public_key)
+    derived_point = curve.multiply(validated_private_key, validated_peer_key)
+
+    if derived_point is None:
+        raise ValueError("ECDH produced the point at infinity")
+
+    return derived_point
 
 
 def shared_secret_x(
@@ -118,4 +161,4 @@ def shared_secret_x(
     It is not yet an AES key; real protocols use a defined encoding and KDF.
     """
 
-    raise NotImplementedError("TODO(student): expose the raw shared x-coordinate")
+    return shared_point(curve, private_key, peer_public_key).x

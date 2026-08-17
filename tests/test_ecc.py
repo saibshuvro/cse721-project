@@ -23,7 +23,6 @@ class ECCConfigurationTests(unittest.TestCase):
 
 
 class ECCFoundationTests(unittest.TestCase):
-    @unittest.skip("Student TODO: implement ECC integer, prime, and inverse helpers")
     def test_integer_primality_and_modular_inverse_helpers(self) -> None:
         self.assertEqual(ecc._require_integer(5, "value", minimum=0), 5)
         with self.assertRaises(TypeError):
@@ -47,7 +46,6 @@ class ECCFoundationTests(unittest.TestCase):
 
 
 class ECCCurveValidationTests(unittest.TestCase):
-    @unittest.skip("Student TODO: implement ECC domain-parameter validation")
     def test_curve_validation_accepts_default_and_rejects_bad_parameters(self) -> None:
         ecc.DEFAULT_CURVE.validate()
 
@@ -79,7 +77,6 @@ class ECCCurveValidationTests(unittest.TestCase):
 
 
 class ECCMembershipTests(unittest.TestCase):
-    @unittest.skip("Student TODO: implement point membership and point validation")
     def test_membership_uses_canonical_coordinates(self) -> None:
         curve = ecc.DEFAULT_CURVE
 
@@ -101,7 +98,6 @@ class ECCMembershipTests(unittest.TestCase):
 
 
 class ECCGroupLawTests(unittest.TestCase):
-    @unittest.skip("Student TODO: implement point negation and every addition branch")
     def test_identity_inverse_doubling_and_distinct_addition(self) -> None:
         curve = ecc.DEFAULT_CURVE
         generator = ecc.Point(5, 1)
@@ -125,7 +121,6 @@ class ECCGroupLawTests(unittest.TestCase):
             ecc.INFINITY,
         )
 
-    @unittest.skip("Student TODO: implement double-and-add scalar multiplication")
     def test_scalar_multiplication_handles_sign_zero_and_order(self) -> None:
         curve = ecc.DEFAULT_CURVE
         generator = ecc.Point(5, 1)
@@ -141,7 +136,6 @@ class ECCGroupLawTests(unittest.TestCase):
 
 
 class ECCEnumerationTests(unittest.TestCase):
-    @unittest.skip("Student TODO: enumerate the educational curve")
     def test_enumeration_lists_infinity_and_all_affine_points(self) -> None:
         expected = (
             ecc.INFINITY,
@@ -175,7 +169,6 @@ class ECCEnumerationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             too_large.enumerate_points()
 
-    @unittest.skip("Student TODO: calculate point order")
     def test_generator_order_matches_domain_parameter(self) -> None:
         curve = ecc.DEFAULT_CURVE
 
@@ -184,7 +177,6 @@ class ECCEnumerationTests(unittest.TestCase):
 
 
 class ECDHTests(unittest.TestCase):
-    @unittest.skip("Student TODO: implement ECDH private-key validation and generation")
     def test_private_keys_are_bounded_by_subgroup_order(self) -> None:
         curve = ecc.DEFAULT_CURVE
 
@@ -201,14 +193,12 @@ class ECDHTests(unittest.TestCase):
             self.assertGreaterEqual(generated, 1)
             self.assertLess(generated, 19)
 
-    @unittest.skip("Student TODO: derive ECDH public keys")
     def test_known_private_scalars_produce_known_public_points(self) -> None:
         curve = ecc.DEFAULT_CURVE
 
         self.assertEqual(ecdh.public_key(curve, 5), ecc.Point(9, 16))
         self.assertEqual(ecdh.public_key(curve, 7), ecc.Point(0, 6))
 
-    @unittest.skip("Student TODO: derive matching ECDH shared secrets")
     def test_alice_and_bob_derive_the_same_shared_point_and_x(self) -> None:
         curve = ecc.DEFAULT_CURVE
         alice_private = 5
@@ -226,7 +216,6 @@ class ECDHTests(unittest.TestCase):
             10,
         )
 
-    @unittest.skip("Student TODO: perform full ECDH peer-public-key validation")
     def test_invalid_or_wrong_subgroup_public_points_are_rejected(self) -> None:
         curve = ecc.DEFAULT_CURVE
 

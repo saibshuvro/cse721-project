@@ -40,52 +40,80 @@ def _require_integer(
 ) -> int:
     """Validate an exact integer, optionally enforcing an inclusive minimum.
 
-    TODO(student):
-        1. Reject non-integers and booleans with ``TypeError``.
-        2. If ``minimum`` is not ``None``, reject values below it.
-        3. Return the validated integer.
-
     ``bool`` needs an explicit check because it is a subclass of ``int`` in
     Python, but ``True`` and ``False`` are not meaningful ECC coordinates or
     scalars in this interface.
     """
 
-    raise NotImplementedError("TODO(student): validate an ECC integer")
+    # Python treats bool as a subclass of int, but True and False are not
+    # meaningful coordinate or scalar inputs for this ECC interface.
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an integer")
+
+    if minimum is not None and value < minimum:
+        raise ValueError(f"{name} must be at least {minimum}")
+
+    return value
 
 
 def is_prime(candidate: int) -> bool:
     """Return whether a small integer is prime using trial division.
 
-    TODO(student):
-        1. Return False for non-integers, booleans, and values below 2.
-        2. Handle 2 directly, then reject other even values.
-        3. Try odd divisors beginning at 3.
-        4. Continue only while ``divisor * divisor <= candidate``.
-        5. Return False on exact division and True if no divisor is found.
-
     This simple test is appropriate for the tiny coursework field. Production
     curve parameters are standardized and validated with stronger processes.
     """
 
-    raise NotImplementedError("TODO(student): test a small field modulus")
+    if isinstance(candidate, bool) or not isinstance(candidate, int):
+        return False
+    if candidate < 2:
+        return False
+    if candidate == 2:
+        return True
+    if candidate % 2 == 0:
+        return False
+
+    divisor = 3
+    while divisor * divisor <= candidate:
+        if candidate % divisor == 0:
+            return False
+        divisor += 2
+
+    return True
 
 
 def modular_inverse(value: int, modulus: int) -> int:
     """Return ``value^-1 mod modulus`` using the extended Euclidean algorithm.
 
-    TODO(student):
-        1. Require an integer value and a modulus of at least 2.
-        2. Reduce value modulo modulus.
-        3. Run iterative extended Euclid while tracking the coefficient of
-           value for each remainder.
-        4. If the final GCD is not 1, raise ``ValueError``.
-        5. Return the coefficient reduced modulo ``modulus``.
-
     In the point-addition formulas, a fraction means multiplication by a
     modular inverse. Ordinary floating-point division must never be used.
     """
 
-    raise NotImplementedError("TODO(student): implement a modular inverse")
+    validated_value = _require_integer(value, "Value")
+    validated_modulus = _require_integer(modulus, "Modulus", minimum=2)
+    reduced_value = validated_value % validated_modulus
+
+    # Track the coefficient of reduced_value while Euclid reduces the pair
+    # (modulus, reduced_value) to their greatest common divisor.
+    old_remainder, current_remainder = validated_modulus, reduced_value
+    old_coefficient, current_coefficient = 0, 1
+
+    while current_remainder != 0:
+        quotient = old_remainder // current_remainder
+        old_remainder, current_remainder = (
+            current_remainder,
+            old_remainder - quotient * current_remainder,
+        )
+        old_coefficient, current_coefficient = (
+            current_coefficient,
+            old_coefficient - quotient * current_coefficient,
+        )
+
+    if old_remainder != 1:
+        raise ValueError(
+            f"{validated_value} has no inverse modulo {validated_modulus}"
+        )
+
+    return old_coefficient % validated_modulus
 
 
 @dataclass(frozen=True)
@@ -144,7 +172,51 @@ class Curve:
         enumeration is a separate, deliberately small-curve operation.
         """
 
-        raise NotImplementedError("TODO(student): validate ECC domain parameters")
+        prime = _require_integer(self.prime, "Field prime", minimum=5)
+        coefficient_a = _require_integer(self.a, "Curve coefficient a")
+        coefficient_b = _require_integer(self.b, "Curve coefficient b")
+
+        if not is_prime(prime):
+            raise ValueError("Field modulus must be prime")
+
+        if not 0 <= coefficient_a < prime:
+            raise ValueError("Curve coefficient a must be in the interval 0..p-1")
+        if not 0 <= coefficient_b < prime:
+            raise ValueError("Curve coefficient b must be in the interval 0..p-1")
+
+        discriminant_term = (
+            4 * coefficient_a * coefficient_a * coefficient_a
+            + 27 * coefficient_b * coefficient_b
+        ) % prime
+        if discriminant_term == 0:
+            raise ValueError("Curve is singular because its discriminant is zero")
+
+        generator_parameter = self.generator
+        order_parameter = self.order
+        if (generator_parameter is None) != (order_parameter is None):
+            raise ValueError("Generator G and subgroup order n must be supplied together")
+
+        # Point-only arithmetic is valid without selecting a generator
+        # subgroup. ECDH's helper applies the stronger requirement later.
+        if generator_parameter is None and order_parameter is None:
+            return
+
+        # The paired-presence check above makes this branch unreachable, but
+        # spelling it out gives static type checkers exact non-None types.
+        if generator_parameter is None or order_parameter is None:
+            raise ValueError("Generator G and subgroup order n must be supplied together")
+
+        generator = self._require_point(
+            generator_parameter,
+            "Generator G",
+            allow_infinity=False,
+        )
+        order = _require_integer(order_parameter, "Subgroup order n", minimum=2)
+
+        if not is_prime(order):
+            raise ValueError("Subgroup order n must be prime")
+        if self.multiply(order, generator) is not None:
+            raise ValueError("Subgroup order n is inconsistent with generator G")
 
     def contains(self, point: PointLike) -> bool:
         """Return whether ``point`` is represented on this curve.
@@ -162,7 +234,27 @@ class Curve:
         raising for an invalid affine point.
         """
 
-        raise NotImplementedError("TODO(student): test point membership")
+        if point is INFINITY:
+            return True
+        if not isinstance(point, Point):
+            return False
+
+        if (
+            isinstance(point.x, bool)
+            or not isinstance(point.x, int)
+            or isinstance(point.y, bool)
+            or not isinstance(point.y, int)
+        ):
+            return False
+
+        if not (0 <= point.x < self.prime and 0 <= point.y < self.prime):
+            return False
+
+        left_side = (point.y * point.y) % self.prime
+        right_side = (
+            point.x * point.x * point.x + self.a * point.x + self.b
+        ) % self.prime
+        return left_side == right_side
 
     def _require_point(
         self,
@@ -183,7 +275,18 @@ class Curve:
         normally call ``contains`` or the public arithmetic methods.
         """
 
-        raise NotImplementedError("TODO(student): require a valid curve point")
+        if point is INFINITY:
+            if allow_infinity:
+                return INFINITY
+            raise ValueError(f"{name} must not be the point at infinity")
+
+        if not isinstance(point, Point):
+            raise TypeError(f"{name} must be a Point or the point at infinity")
+
+        if not self.contains(point):
+            raise ValueError(f"{name} is not a valid point on this curve")
+
+        return point
 
     def negate(self, point: PointLike) -> PointLike:
         """Return the additive inverse ``-(x, y) = (x, -y mod p)``.
@@ -192,7 +295,14 @@ class Curve:
         ``Point(point.x, (-point.y) % self.prime)`` for an affine point.
         """
 
-        raise NotImplementedError("TODO(student): negate an elliptic-curve point")
+        validated_point = self._require_point(point, "Point")
+        if validated_point is None:
+            return INFINITY
+
+        return Point(
+            x=validated_point.x,
+            y=(-validated_point.y) % self.prime,
+        )
 
     def add(self, left: PointLike, right: PointLike) -> PointLike:
         """Return ``left + right`` using affine-coordinate group formulas.
@@ -218,7 +328,48 @@ class Curve:
         reduce the final coordinate expressions modulo p.
         """
 
-        raise NotImplementedError("TODO(student): add elliptic-curve points")
+        left_point = self._require_point(left, "Left point")
+        right_point = self._require_point(right, "Right point")
+
+        # The point at infinity is the additive identity.
+        if left_point is None:
+            return right_point
+        if right_point is None:
+            return left_point
+
+        prime = self.prime
+
+        # Points with the same x-coordinate and opposite y-coordinates are
+        # additive inverses. This also handles doubling when y == 0, where the
+        # tangent is vertical and 2P is infinity.
+        if (
+            left_point.x == right_point.x
+            and (left_point.y + right_point.y) % prime == 0
+        ):
+            return INFINITY
+
+        if left_point == right_point:
+            numerator = 3 * left_point.x * left_point.x + self.a
+            denominator = 2 * left_point.y
+        else:
+            numerator = right_point.y - left_point.y
+            denominator = right_point.x - left_point.x
+
+        slope = (
+            numerator * modular_inverse(denominator, prime)
+        ) % prime
+        result_x = (
+            slope * slope - left_point.x - right_point.x
+        ) % prime
+        result_y = (
+            slope * (left_point.x - result_x) - left_point.y
+        ) % prime
+        result = Point(result_x, result_y)
+
+        if not self.contains(result):
+            raise ArithmeticError("Point addition produced an off-curve result")
+
+        return result
 
     def multiply(self, scalar: int, point: PointLike) -> PointLike:
         """Return ``scalar * point`` with the binary double-and-add algorithm.
@@ -238,7 +389,27 @@ class Curve:
         point ``scalar`` times.
         """
 
-        raise NotImplementedError("TODO(student): multiply an elliptic-curve point")
+        remaining_scalar = _require_integer(scalar, "Scalar")
+        validated_point = self._require_point(point, "Point")
+
+        if remaining_scalar == 0 or validated_point is None:
+            return INFINITY
+
+        addend: PointLike = validated_point
+        if remaining_scalar < 0:
+            remaining_scalar = -remaining_scalar
+            addend = self.negate(addend)
+
+        result: PointLike = INFINITY
+
+        while remaining_scalar > 0:
+            if remaining_scalar & 1:
+                result = self.add(result, addend)
+
+            addend = self.add(addend, addend)
+            remaining_scalar >>= 1
+
+        return result
 
     def enumerate_points(self) -> tuple[PointLike, ...]:
         """List infinity and every affine point on a small curve.
@@ -255,7 +426,23 @@ class Curve:
         They cost p^2 membership checks and must not be used for real curves.
         """
 
-        raise NotImplementedError("TODO(student): enumerate the educational curve")
+        self.validate()
+
+        if self.prime > MAX_ENUMERATION_PRIME:
+            raise ValueError(
+                "Field prime is too large for exhaustive point enumeration; "
+                f"maximum supported p is {MAX_ENUMERATION_PRIME}"
+            )
+
+        points: list[PointLike] = [INFINITY]
+
+        for x_coordinate in range(self.prime):
+            for y_coordinate in range(self.prime):
+                point = Point(x_coordinate, y_coordinate)
+                if self.contains(point):
+                    points.append(point)
+
+        return tuple(points)
 
     def point_order(self, point: PointLike) -> int:
         """Return the smallest positive k for which ``k * point`` is infinity.
@@ -273,7 +460,23 @@ class Curve:
         efficient order-finding algorithm.
         """
 
-        raise NotImplementedError("TODO(student): calculate a small point order")
+        self.validate()
+        validated_point = self._require_point(point, "Point")
+
+        if validated_point is None:
+            return 1
+
+        group_size = len(self.enumerate_points())
+        accumulated: PointLike = INFINITY
+
+        for order in range(1, group_size + 1):
+            accumulated = self.add(accumulated, validated_point)
+            if accumulated is None:
+                return order
+
+        raise ValueError(
+            "Point order was not found within the enumerated curve group"
+        )
 
 
 # This entire group has 19 points (18 affine points plus infinity). Since 19

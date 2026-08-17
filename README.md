@@ -12,9 +12,9 @@ and must not be used to protect real data.
 
 ## Current status
 
-The monoalphabetic substitution, Double Transposition, DES, AES-128, and RSA components are
-implemented, tested, and available from main-menu options 1 through 5. ECC/ECDH has a guided TODO
-template and staged tests; comparative performance analysis remains scaffolded.
+The monoalphabetic substitution, Double Transposition, DES, AES-128, RSA, and ECC/ECDH components
+are implemented, tested, and available from main-menu options 1 through 6. Comparative performance
+analysis remains scaffolded.
 
 ## Run
 

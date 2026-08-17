@@ -9,6 +9,7 @@ from typing import Callable, Sequence
 from cli.aes_menu import run_aes_menu
 from cli.des_menu import run_des_menu
 from cli.double_transposition_menu import run_double_transposition_menu
+from cli.ecc_menu import run_ecc_menu
 from cli.rsa_menu import run_rsa_menu
 from cli.substitution_menu import run_substitution_menu
 
@@ -34,7 +35,12 @@ COMPONENTS: tuple[Component, ...] = (
     Component("3", "DES", "symmetric.des", implemented=True),
     Component("4", "AES-128", "symmetric.aes", implemented=True),
     Component("5", "RSA", "public_key.rsa", implemented=True),
-    Component("6", "ECC / ECDH", "public_key.ecc + public_key.ecdh"),
+    Component(
+        "6",
+        "ECC / ECDH",
+        "public_key.ecc + public_key.ecdh",
+        implemented=True,
+    ),
     Component("7", "Performance Comparison", "analysis.performance"),
 )
 
@@ -89,6 +95,10 @@ def interactive_menu(input_fn: Callable[[str], str] = input) -> int:
             continue
         if choice == "5":
             run_rsa_menu(input_fn)
+            print()
+            continue
+        if choice == "6":
+            run_ecc_menu(input_fn)
             print()
             continue
         print(
