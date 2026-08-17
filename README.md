@@ -12,9 +12,9 @@ and must not be used to protect real data.
 
 ## Current status
 
-The monoalphabetic substitution and Double Transposition ciphers are implemented, tested, and
-available from main-menu options 1 and 2. DES, AES-128, RSA, ECC/ECDH, and comparative performance
-analysis remain scaffolded and should be implemented and verified one component at a time.
+The monoalphabetic substitution, Double Transposition, DES, and AES-128 components are implemented,
+tested, and available from main-menu options 1 through 4. RSA and ECC/ECDH have guided TODO
+templates and staged tests; comparative performance analysis remains scaffolded.
 
 ## Run
 
