@@ -105,7 +105,15 @@ def _require_integer(
         3. Return the validated integer.
     """
 
-    raise NotImplementedError("TODO(student): validate an RSA integer")
+    # ``bool`` is a subclass of ``int`` in Python. Check it separately so
+    # values such as True are not silently accepted as the integer 1.
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an integer")
+
+    if minimum is not None and value < minimum:
+        raise ValueError(f"{name} must be at least {minimum}")
+
+    return value
 
 
 def greatest_common_divisor(left: int, right: int) -> int:
@@ -115,7 +123,15 @@ def greatest_common_divisor(left: int, right: int) -> int:
     ``b`` is zero. Return a non-negative GCD and handle zero inputs cleanly.
     """
 
-    raise NotImplementedError("TODO(student): implement Euclid's algorithm")
+    # GCD is defined as a non-negative value, so normalize signs before
+    # applying Euclid's remainder algorithm.
+    current = abs(_require_integer(left, "Left value"))
+    remainder = abs(_require_integer(right, "Right value"))
+
+    while remainder != 0:
+        current, remainder = remainder, current % remainder
+
+    return current
 
 
 def extended_gcd(left: int, right: int) -> tuple[int, int, int]:
@@ -126,7 +142,33 @@ def extended_gcd(left: int, right: int) -> tuple[int, int, int]:
     GCD to be non-negative.
     """
 
-    raise NotImplementedError("TODO(student): implement extended Euclid")
+    validated_left = _require_integer(left, "Left value")
+    validated_right = _require_integer(right, "Right value")
+
+    # Work with non-negative remainders. old_x/current_x track the
+    # coefficient of abs(left), while old_y/current_y track abs(right).
+    old_remainder, current_remainder = abs(validated_left), abs(validated_right)
+    old_x, current_x = 1, 0
+    old_y, current_y = 0, 1
+
+    while current_remainder != 0:
+        quotient = old_remainder // current_remainder
+
+        old_remainder, current_remainder = (
+            current_remainder,
+            old_remainder - quotient * current_remainder,
+        )
+        old_x, current_x = current_x, old_x - quotient * current_x
+        old_y, current_y = current_y, old_y - quotient * current_y
+
+    # The coefficients above apply to the absolute input values. Reverse a
+    # coefficient's sign when its original input was negative.
+    if validated_left < 0:
+        old_x = -old_x
+    if validated_right < 0:
+        old_y = -old_y
+
+    return old_remainder, old_x, old_y
 
 
 def modular_inverse(value: int, modulus: int) -> int:
@@ -136,25 +178,47 @@ def modular_inverse(value: int, modulus: int) -> int:
     ``extended_gcd`` and raise ``ValueError`` when the values are not coprime.
     """
 
-    raise NotImplementedError("TODO(student): implement modular inverse")
+    validated_value = _require_integer(value, "Value")
+    validated_modulus = _require_integer(modulus, "Modulus", minimum=2)
+
+    gcd, value_coefficient, _ = extended_gcd(
+        validated_value,
+        validated_modulus,
+    )
+
+    if gcd != 1:
+        raise ValueError(
+            f"{validated_value} has no inverse modulo {validated_modulus}"
+        )
+
+    # Bézout gives value*x + modulus*y = 1. Reducing x modulo the
+    # modulus produces the unique canonical inverse in 0..modulus-1.
+    return value_coefficient % validated_modulus
 
 
 def modular_exponentiation(base: int, exponent: int, modulus: int) -> int:
     """Compute ``base**exponent mod modulus`` with square-and-multiply.
 
-    TODO(student):
-        1. Require a non-negative exponent and positive modulus.
-        2. Reduce ``base`` modulo ``modulus`` first.
-        3. Start ``result`` at ``1 % modulus``.
-        4. While exponent is nonzero:
-             a. multiply result by base when the low exponent bit is 1;
-             b. square base modulo modulus;
-             c. shift exponent right by one bit.
-
     Do not calculate ``base**exponent`` first; RSA exponents are far too large.
     """
 
-    raise NotImplementedError("TODO(student): implement modular exponentiation")
+    validated_base = _require_integer(base, "Base")
+    remaining_exponent = _require_integer(exponent, "Exponent", minimum=0)
+    validated_modulus = _require_integer(modulus, "Modulus", minimum=1)
+
+    result = 1 % validated_modulus
+    current_base = validated_base % validated_modulus
+
+    while remaining_exponent > 0:
+        # A set low bit means this power of the base contributes to the
+        # exponent's binary representation.
+        if remaining_exponent & 1:
+            result = (result * current_base) % validated_modulus
+
+        current_base = (current_base * current_base) % validated_modulus
+        remaining_exponent >>= 1
+
+    return result
 
 
 def is_probable_prime(
@@ -163,22 +227,51 @@ def is_probable_prime(
 ) -> bool:
     """Return whether ``candidate`` passes randomized Miller-Rabin testing.
 
-    TODO(student):
-        1. Handle values below 2 and the supplied ``SMALL_PRIMES``.
-        2. Reject candidates divisible by any supplied small prime.
-        3. Write ``candidate - 1`` as ``2**s * d`` with ``d`` odd.
-        4. For each round, choose a base uniformly from 2 through n-2 using
-           ``secrets.randbelow``.
-        5. Compute ``x = base**d mod n`` with ``modular_exponentiation``.
-        6. Accept that round if x is 1 or n-1. Otherwise repeatedly square x
-           up to s-1 times, looking for n-1.
-        7. Return False when one base proves compositeness; return True only
-           after every requested round passes.
-
     ``True`` means probably prime, not a mathematical proof of primality.
     """
 
-    raise NotImplementedError("TODO(student): implement Miller-Rabin")
+    validated_candidate = _require_integer(candidate, "Candidate")
+    validated_rounds = _require_integer(rounds, "Rounds", minimum=1)
+
+    if validated_candidate < 2:
+        return False
+
+    if validated_candidate in SMALL_PRIMES:
+        return True
+
+    # This also rejects all remaining even candidates because 2 is included
+    # in SMALL_PRIMES.
+    for small_prime in SMALL_PRIMES:
+        if validated_candidate % small_prime == 0:
+            return False
+
+    # Factor candidate - 1 into 2**s * d, where d is odd.
+    d = validated_candidate - 1
+    s = 0
+    while d % 2 == 0:
+        d //= 2
+        s += 1
+
+    for _ in range(validated_rounds):
+        # randbelow(candidate - 3) returns 0..candidate-4, so adding 2
+        # selects uniformly from the required interval 2..candidate-2.
+        base = secrets.randbelow(validated_candidate - 3) + 2
+        result = modular_exponentiation(base, d, validated_candidate)
+
+        if result == 1 or result == validated_candidate - 1:
+            continue
+
+        # Look for -1 modulo candidate while repeatedly squaring. If it
+        # appears, this base is not a witness to compositeness.
+        for _ in range(s - 1):
+            result = (result * result) % validated_candidate
+            if result == validated_candidate - 1:
+                break
+        else:
+            # This base proves that candidate is composite.
+            return False
+
+    return True
 
 
 def generate_probable_prime(
@@ -188,31 +281,78 @@ def generate_probable_prime(
 ) -> int:
     """Generate a random odd probable prime of exactly ``bits`` bits.
 
-    TODO(student):
-        1. Validate the bit count, exponent, and round count.
-        2. Draw candidates with ``secrets.randbits(bits)``.
-        3. Set the highest bit so the candidate has exactly ``bits`` bits.
-        4. Set the lowest bit so the candidate is odd.
-        5. Require ``gcd(candidate - 1, public_exponent) == 1``.
-        6. Return the first candidate that passes ``is_probable_prime``.
-
     The GCD condition ensures the public exponent will be invertible modulo
     both ``p - 1`` and ``q - 1`` during key generation.
     """
 
-    raise NotImplementedError("TODO(student): generate a probable RSA prime")
+    validated_bits = _require_integer(bits, "Prime bit size", minimum=2)
+    validated_exponent = _require_integer(
+        public_exponent,
+        "Public exponent",
+        minimum=3,
+    )
+    validated_rounds = _require_integer(rounds, "Rounds", minimum=1)
+
+    if validated_exponent % 2 == 0:
+        raise ValueError("Public exponent must be odd")
+
+    highest_bit = 1 << (validated_bits - 1)
+
+    while True:
+        candidate = secrets.randbits(validated_bits)
+
+        # Force the top bit for the exact requested width and the low bit so
+        # the candidate is odd.
+        candidate |= highest_bit
+        candidate |= 1
+
+        if greatest_common_divisor(candidate - 1, validated_exponent) != 1:
+            continue
+
+        if is_probable_prime(candidate, validated_rounds):
+            return candidate
 
 
 def _validate_public_key(key: PublicKey) -> PublicKey:
-    """Validate the simple ``(e, n)`` public-key representation."""
+    """Validate the simple ``(e, n)`` public-key representation.
 
-    raise NotImplementedError("TODO(student): validate an RSA public key")
+    This checks the representation and basic RSA bounds. Without the secret
+    factors of n, it cannot prove that e is coprime with the corresponding
+    totient or that the key belongs to a particular private key.
+    """
+
+    if not isinstance(key, PublicKey):
+        raise TypeError("Public key must be a PublicKey")
+
+    exponent = _require_integer(key.exponent, "Public exponent", minimum=3)
+    modulus = _require_integer(key.modulus, "Public modulus", minimum=3)
+
+    if exponent % 2 == 0:
+        raise ValueError("Public exponent must be odd")
+    if exponent >= modulus:
+        raise ValueError("Public exponent must be smaller than the modulus")
+
+    return key
 
 
 def _validate_private_key(key: PrivateKey) -> PrivateKey:
-    """Validate the simple ``(d, n)`` private-key representation."""
+    """Validate the simple ``(d, n)`` private-key representation.
 
-    raise NotImplementedError("TODO(student): validate an RSA private key")
+    This validates the stored integers and their basic bounds. It cannot
+    establish that d is the inverse of some public exponent without the
+    corresponding public key and secret prime factors.
+    """
+
+    if not isinstance(key, PrivateKey):
+        raise TypeError("Private key must be a PrivateKey")
+
+    exponent = _require_integer(key.exponent, "Private exponent", minimum=2)
+    modulus = _require_integer(key.modulus, "Private modulus", minimum=3)
+
+    if exponent >= modulus:
+        raise ValueError("Private exponent must be smaller than the modulus")
+
+    return key
 
 
 def generate_keypair(
@@ -221,21 +361,65 @@ def generate_keypair(
 ) -> KeyPair:
     """Generate a two-prime RSA key pair with an exact-size modulus.
 
-    TODO(student):
-        1. Require an even bit count of at least ``MINIMUM_EDUCATIONAL_KEY_BITS``.
-        2. Validate that e is odd and at least 3.
-        3. Generate distinct half-size probable primes p and q.
-        4. Compute n = p*q; retry if ``n.bit_length()`` is not exactly ``bits``.
-        5. Compute the coursework totient phi(n) = (p-1)*(q-1).
-        6. Compute d = modular_inverse(e, phi(n)).
-        7. Return public (e,n), private (d,n), p, and q.
-
     The standards express key validity using Carmichael's lambda(n). Computing
     d modulo phi(n) is the conventional course derivation and also satisfies
     that condition because lambda(n) divides phi(n) for two-prime RSA.
     """
 
-    raise NotImplementedError("TODO(student): implement RSA key generation")
+    validated_bits = _require_integer(
+        bits,
+        "RSA modulus bit size",
+        minimum=MINIMUM_EDUCATIONAL_KEY_BITS,
+    )
+    validated_exponent = _require_integer(
+        public_exponent,
+        "Public exponent",
+        minimum=3,
+    )
+
+    if validated_bits % 2 != 0:
+        raise ValueError("RSA modulus bit size must be even")
+    if validated_exponent % 2 == 0:
+        raise ValueError("Public exponent must be odd")
+
+    prime_bits = validated_bits // 2
+
+    while True:
+        prime_p = generate_probable_prime(
+            prime_bits,
+            public_exponent=validated_exponent,
+        )
+        prime_q = generate_probable_prime(
+            prime_bits,
+            public_exponent=validated_exponent,
+        )
+
+        if prime_p == prime_q:
+            continue
+
+        modulus = prime_p * prime_q
+
+        # Two half-width primes can produce a product that is one bit shorter
+        # than requested. Retry so the reported key size is exact.
+        if modulus.bit_length() != validated_bits:
+            continue
+
+        totient = (prime_p - 1) * (prime_q - 1)
+        private_exponent = modular_inverse(validated_exponent, totient)
+
+        public_key = _validate_public_key(
+            PublicKey(exponent=validated_exponent, modulus=modulus)
+        )
+        private_key = _validate_private_key(
+            PrivateKey(exponent=private_exponent, modulus=modulus)
+        )
+
+        return KeyPair(
+            public=public_key,
+            private=private_key,
+            prime_p=prime_p,
+            prime_q=prime_q,
+        )
 
 
 def encrypt_int(message: int, key: PublicKey) -> int:
@@ -245,7 +429,17 @@ def encrypt_int(message: int, key: PublicKey) -> int:
     using ``modular_exponentiation``.
     """
 
-    raise NotImplementedError("TODO(student): implement RSA integer encryption")
+    validated_key = _validate_public_key(key)
+    validated_message = _require_integer(message, "Message", minimum=0)
+
+    if validated_message >= validated_key.modulus:
+        raise ValueError("Message must be smaller than the RSA modulus")
+
+    return modular_exponentiation(
+        validated_message,
+        validated_key.exponent,
+        validated_key.modulus,
+    )
 
 
 def decrypt_int(ciphertext: int, key: PrivateKey) -> int:
@@ -255,7 +449,21 @@ def decrypt_int(ciphertext: int, key: PrivateKey) -> int:
     using ``modular_exponentiation``.
     """
 
-    raise NotImplementedError("TODO(student): implement RSA integer decryption")
+    validated_key = _validate_private_key(key)
+    validated_ciphertext = _require_integer(
+        ciphertext,
+        "Ciphertext",
+        minimum=0,
+    )
+
+    if validated_ciphertext >= validated_key.modulus:
+        raise ValueError("Ciphertext must be smaller than the RSA modulus")
+
+    return modular_exponentiation(
+        validated_ciphertext,
+        validated_key.exponent,
+        validated_key.modulus,
+    )
 
 
 def maximum_text_payload_bytes(modulus: int) -> int:
@@ -266,7 +474,17 @@ def maximum_text_payload_bytes(modulus: int) -> int:
     strictly less than the modulus. One byte is then reserved for the marker.
     """
 
-    raise NotImplementedError("TODO(student): calculate safe RSA text block size")
+    validated_modulus = _require_integer(modulus, "Modulus", minimum=3)
+
+    encoded_block_bytes = (validated_modulus.bit_length() - 1) // 8
+    payload_bytes = encoded_block_bytes - 1
+
+    if payload_bytes < 1:
+        raise ValueError(
+            "RSA modulus is too small for a marker-prefixed text block"
+        )
+
+    return payload_bytes
 
 
 def _encode_text_blocks(plaintext: str, modulus: int) -> tuple[int, ...]:
@@ -278,7 +496,27 @@ def _encode_text_blocks(plaintext: str, modulus: int) -> tuple[int, ...]:
     an empty tuple.
     """
 
-    raise NotImplementedError("TODO(student): encode modulus-bounded text blocks")
+    if not isinstance(plaintext, str):
+        raise TypeError("Plaintext must be a string")
+
+    payload_size = maximum_text_payload_bytes(modulus)
+    plaintext_bytes = plaintext.encode("utf-8")
+    marker = bytes((TEXT_BLOCK_MARKER,))
+    blocks: list[int] = []
+
+    for offset in range(0, len(plaintext_bytes), payload_size):
+        payload = plaintext_bytes[offset : offset + payload_size]
+        marked_block = marker + payload
+        block = int.from_bytes(marked_block, byteorder="big")
+
+        # maximum_text_payload_bytes() should make this impossible. Keeping
+        # the check here makes a future change to the encoding fail safely.
+        if block >= modulus:
+            raise ValueError("Encoded text block is not smaller than the modulus")
+
+        blocks.append(block)
+
+    return tuple(blocks)
 
 
 def _decode_text_blocks(blocks: tuple[int, ...], modulus: int) -> str:
@@ -289,7 +527,42 @@ def _decode_text_blocks(blocks: tuple[int, ...], modulus: int) -> str:
     and decode UTF-8. Convert ``UnicodeDecodeError`` to a focused ``ValueError``.
     """
 
-    raise NotImplementedError("TODO(student): decode RSA text blocks")
+    if not isinstance(blocks, tuple):
+        raise TypeError("Encoded text blocks must be a tuple")
+
+    maximum_payload_size = maximum_text_payload_bytes(modulus)
+    payload_parts: list[bytes] = []
+
+    for index, block in enumerate(blocks):
+        validated_block = _require_integer(
+            block,
+            f"Encoded block {index}",
+            minimum=0,
+        )
+
+        if validated_block >= modulus:
+            raise ValueError(f"Encoded block {index} must be smaller than the modulus")
+
+        byte_length = max(1, (validated_block.bit_length() + 7) // 8)
+        marked_block = validated_block.to_bytes(byte_length, byteorder="big")
+
+        if marked_block[0] != TEXT_BLOCK_MARKER:
+            raise ValueError(f"Encoded block {index} has an invalid marker")
+
+        payload = marked_block[1:]
+        if not payload:
+            raise ValueError(f"Encoded block {index} has an empty payload")
+        if len(payload) > maximum_payload_size:
+            raise ValueError(f"Encoded block {index} exceeds the payload limit")
+
+        payload_parts.append(payload)
+
+    plaintext_bytes = b"".join(payload_parts)
+
+    try:
+        return plaintext_bytes.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as error:
+        raise ValueError("Decoded RSA blocks do not contain valid UTF-8") from error
 
 
 def encrypt_text(plaintext: str, key: PublicKey) -> list[int]:
@@ -299,10 +572,32 @@ def encrypt_text(plaintext: str, key: PublicKey) -> list[int]:
     assignment's plaintext-string and integer-ciphertext demonstration.
     """
 
-    raise NotImplementedError("TODO(student): implement RSA text encryption")
+    validated_key = _validate_public_key(key)
+    plaintext_blocks = _encode_text_blocks(
+        plaintext,
+        validated_key.modulus,
+    )
+
+    ciphertext: list[int] = []
+    for block in plaintext_blocks:
+        ciphertext.append(encrypt_int(block, validated_key))
+
+    return ciphertext
 
 
 def decrypt_text(ciphertext: list[int], key: PrivateKey) -> str:
     """Decrypt textbook RSA integers and reconstruct the UTF-8 plaintext."""
 
-    raise NotImplementedError("TODO(student): implement RSA text decryption")
+    if not isinstance(ciphertext, list):
+        raise TypeError("Ciphertext must be a list of integers")
+
+    validated_key = _validate_private_key(key)
+    plaintext_blocks: list[int] = []
+
+    for block in ciphertext:
+        plaintext_blocks.append(decrypt_int(block, validated_key))
+
+    return _decode_text_blocks(
+        tuple(plaintext_blocks),
+        validated_key.modulus,
+    )

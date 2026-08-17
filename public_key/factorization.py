@@ -6,6 +6,8 @@ routine. The CLI attack demonstration will generate a separate toy modulus.
 
 from __future__ import annotations
 
+from public_key.rsa import modular_inverse
+
 
 DEFAULT_MAX_TRIAL_DIVISOR = 1_000_000
 
@@ -30,7 +32,32 @@ def trial_division(
     configured educational search bound was too small.
     """
 
-    raise NotImplementedError("TODO(student): implement bounded trial division")
+    if isinstance(modulus, bool) or not isinstance(modulus, int):
+        raise TypeError("Modulus must be an integer")
+    if modulus <= 3:
+        raise ValueError("Modulus must be greater than 3")
+
+    if isinstance(max_divisor, bool) or not isinstance(max_divisor, int):
+        raise TypeError("Maximum divisor must be an integer")
+    if max_divisor < 2:
+        raise ValueError("Maximum divisor must be at least 2")
+
+    if modulus % 2 == 0:
+        return 2, modulus // 2
+
+    divisor = 3
+    while divisor * divisor <= modulus and divisor <= max_divisor:
+        if modulus % divisor == 0:
+            other_factor = modulus // divisor
+            # divisor cannot exceed the paired factor while it is at or below
+            # sqrt(modulus), but sort explicitly to preserve the API promise.
+            if divisor <= other_factor:
+                return divisor, other_factor
+            return other_factor, divisor
+
+        divisor += 2
+
+    return None
 
 
 def recover_private_exponent(
@@ -51,6 +78,16 @@ def recover_private_exponent(
     owner. It is not intended as a competitive factorization algorithm.
     """
 
-    raise NotImplementedError(
-        "TODO(student): recover a toy RSA private exponent by factorization"
-    )
+    if isinstance(public_exponent, bool) or not isinstance(public_exponent, int):
+        raise TypeError("Public exponent must be an integer")
+    if public_exponent < 3 or public_exponent % 2 == 0:
+        raise ValueError("Public exponent must be an odd integer of at least 3")
+
+    factors = trial_division(modulus, max_divisor=max_divisor)
+    if factors is None:
+        raise ValueError("No factors were found within the trial-division bound")
+
+    prime_p, prime_q = factors
+    totient = (prime_p - 1) * (prime_q - 1)
+
+    return modular_inverse(public_exponent, totient)
